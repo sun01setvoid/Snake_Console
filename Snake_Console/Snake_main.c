@@ -18,6 +18,9 @@ int main() {
 			About();
 			break;
 		case 4:
+			Shop();
+			break;
+		case 5:
 			end = 0;
 			break;
 		}

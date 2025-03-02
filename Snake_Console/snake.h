@@ -1,4 +1,3 @@
-
 //头文件
 #include <stdio.h>
 #include <Windows.h>
@@ -8,6 +7,7 @@
 #define MAP_HEIGHT 25
 #define MAP_WIDTH 50
 #define FOODTYPE 3
+
 #define UP 'w'
 #define DOWN 's'
 #define LEFT 'a'
@@ -17,8 +17,12 @@
 #define MEDIUM 2
 #define HARD 3
 
-
-
+#define SPEED 'j'
+#define DUN 'k'
+#define SPEEDFOOT 30
+#define DUNFOOT 40
+#define MAX_SKILL_CNT 3
+#define SKILLNUM 2
 //结构体(点，蛇)
 typedef struct {
 	int x, y;
@@ -38,8 +42,12 @@ void InitMap(int);//初始地图
 void PrintFood();//生成所有食物
 void PrintSingleFood(int);//生成单个食物
 void PrintBlock(int);//生成障碍物
+void PrintSingleBlock(int);//生成单个障碍物
 int MoveSnake(int);//蛇移动
-int IsCorrect();//撞墙或障碍物提示
+int IsBorder();//撞墙提示
+int IsBlock();//撞障碍物提示
 int IsSelf();//自撞提示
 void SpeedControl(int level);//速度控制
 void Rank(int);//更新排行
+void SKILL_INFORMATION();//技能信息
+void Shop();//商店

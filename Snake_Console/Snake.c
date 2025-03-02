@@ -8,10 +8,19 @@ const char ICO[5] = { '$','+','*','t','p' };
 const int SCORE[5] = { 1,2,3,4,5 };
 int RankList[5], cnt = 0;//排行榜
 int hash[2000] = { 1 };//hash table 存储值，保证每个分数只出现一次
-char now_Dir = RIGHT;//当前谁头方向
+char now_Dir = RIGHT;//当前蛇头方向
 char pre_Dir = RIGHT;//前一个时间的蛇头方向
 char direction = RIGHT;//预期蛇头方向
 int blockCount = 10;//障碍物数量
+
+int possess[SKILLNUM] = { 0 };
+const char skill_string[SKILLNUM][10] = { "加速","护盾" };
+const int skill_value[SKILLNUM] = { 40,80 };
+const char skill_control[SKILLNUM] = { 'j','k' };
+int vis[SKILLNUM] = {0};//两个技能,前一个加速,后一个盾
+int skill_cnt[SKILLNUM] = {0};
+int vis_cnt[SKILLNUM] = {SPEEDFOOT,DUNFOOT};//两个技能各自被限制的步数
+int score = 0;
 
 //主菜单实现
 int Menu() {
@@ -24,6 +33,8 @@ int Menu() {
 	GotoXY(43, 18);
 	printf("3.关于");
 	GotoXY(43, 20);
+	printf("4.商店");
+	GotoXY(43, 22);
 	printf("按其他任意键退出游戏");
 	Hide();//隐藏光标
 	char ch;
@@ -81,8 +92,12 @@ void Help() {
 	printf("a 左");
 	GotoXY(40, 12);
 	printf("d 右");
+	GotoXY(46, 7);
+	printf("j 加速");
+	GotoXY(46, 11);
+	printf("k 护盾 （护盾可以无视障碍物，但不能无视边界）");
 	GotoXY(40, 14);
-	printf("1.当蛇撞墙或撞到障碍物时游戏结束");
+	printf("1.当蛇撞墙或没有护盾撞到障碍物时游戏结束");
 	GotoXY(40, 16);
 	printf("2.当蛇自撞时，会截去尾部");
 	GotoXY(40, 18);
@@ -96,6 +111,57 @@ void Help() {
 	system("cls");
 }
 
+//商店
+void Shop() {
+	int x = 40, y = 8;
+	GotoXY(x, y);
+	printf("你目前具有 %d 积分    ",score);
+	y += 2;
+	for (int i = 0;i < SKILLNUM;i++) {
+		GotoXY(x, y);
+		printf("%s  需要%d积分  按下%d购买  目前%s购买", skill_string[i],skill_value[i], i,possess[i] ? "已" : "未");
+		y += 2;
+	}
+	y += 6;
+	GotoXY(x, y);
+	printf("按其他任意键结束");
+	char ch = _getch();
+	while (ch == '0' || ch == '1') {
+		int i = ch - '0';
+		if (possess[i]==0 && score >= skill_value[i]) {
+			score -= skill_value[i];
+			possess[i] = 1;
+			GotoXY(40, 16);
+			printf("  购买%s技能成功   ", skill_string[i]);
+			x = 40, y = 8;
+			GotoXY(x, y);
+			printf("你目前具有 %d 积分    ", score);
+			y += (i + 1) * 2;
+			GotoXY(x, y);
+			printf("%s  需要%d积分  按下%d购买  目前%s购买", skill_string[i], skill_value[i], i, possess[i] ? "已" : "未");
+			Sleep(200);
+			GotoXY(40, 16);
+			printf("                                  ");
+		}
+		else if (possess[i] == 1) {
+			GotoXY(40, 16);
+			printf("  请勿重复购买    ");
+			Sleep(200);
+			GotoXY(40, 16);
+			printf("                                  ");
+		}
+		else if (score < skill_value[i]) {
+			GotoXY(40, 16);
+			printf("  你的积分不够    ");
+			Sleep(100);
+			GotoXY(40, 16);
+			printf("                                  ");
+		}
+		ch = _getch();
+	}
+	system("cls");
+	return;
+}
 //更新排行榜
 void Rank(int u) {
 	int i;
@@ -121,6 +187,9 @@ void InitMap(int level) {
 	snake.speed = 250;
 	now_Dir = RIGHT;
 	pre_Dir = RIGHT;
+	skill_cnt[0] =skill_cnt[1]= 0;
+	vis[0] = vis[1] = 0;
+	vis_cnt[0] = SPEEDFOOT;vis_cnt[1] = DUNFOOT;
 	for (int i = 1; i < snake.length; i++) {
 		snake.snakeNode[i].y = snake.snakeNode[i - 1].y;
 		snake.snakeNode[i].x = snake.snakeNode[i - 1].x - 1;
@@ -162,8 +231,25 @@ void InitMap(int level) {
 	GotoXY(60, 8);
 	printf("排行榜（只取前三名）");
 	Rank(0);
+	//生成技能信息
+	SKILL_INFORMATION();
+	Hide();
 }
-
+void SKILL_INFORMATION() {
+	int x = 60, y = 16;
+	for (int i = 0;i < SKILLNUM;i++) {
+		GotoXY(x, y);
+		printf("你%s拥有%s技能", possess[i] ? "已" : "未", skill_string[i]);
+		y += 2;
+		GotoXY(x, y);
+		printf("%s   %c  使用次数还剩%d次", skill_string[i],skill_control[i],possess[i] * (MAX_SKILL_CNT - skill_cnt[i]));
+		y += 2;
+		GotoXY(x, y);
+		printf("%s技能还有%d步就结束", skill_string[i], vis[i] * vis_cnt[i]);
+		y += 2;
+	}
+	Hide();
+}
 //生成所有食物
 void PrintFood() {
 	for (int i = 0; i < FOODTYPE; i++) {
@@ -260,8 +346,46 @@ void PrintBlock(int blockCount) {
 		printf("#");
 	}
 }
+
+//生成单个障碍
+void PrintSingleBlock(int i){
+	int flag = 1;
+	while (flag) {
+		flag = 0;
+		block[i].x = rand() % (MAP_WIDTH - 2) + 1;
+		block[i].y = rand() % (MAP_HEIGHT - 2) + 1;
+		for (int k = 0; k < blockCount; k++) {
+			if (i != k && block[i].x == block[k].x && block[i].y == block[k].y) {
+				flag = 1;
+				break;
+			}
+		}
+		for (int k = 0; k <FOODTYPE; k++) {
+			if (block[i].x == food[k].x && block[i].y == food[k].y) {
+				flag = 1;
+				break;
+			}
+		}
+		for (int k = 0; k < snake.length - 1; k++) {
+			if (snake.snakeNode[k].x == block[i].x && snake.snakeNode[k].y == block[i].y) {
+				flag = 1;
+				break;
+			}
+		}
+	}
+	GotoXY(block[i].x, block[i].y);
+	printf("#");
+}
 //蛇移动(实际是更新头和尾),身体是不断跟随他们移动
 int MoveSnake(int level) {
+	//更新技能信息
+	SKILL_INFORMATION();
+	for (int i = 0;i < SKILLNUM;i++) {
+		if (vis_cnt[i] == 0)	vis[i] = 0;
+		if (vis[i] == 1) {
+			vis_cnt[i]--;
+		}
+	}
 	Snakenode temp;
 	int flag = 0;//判断是否吃到食物
 	temp = snake.snakeNode[snake.length - 1];
@@ -274,6 +398,18 @@ int MoveSnake(int level) {
 	if (_kbhit()) {			//非阻塞响应键盘输入，键盘输入返回1，非键盘输入返回0
 		direction = _getch();
 		switch (direction) {
+		case SPEED:
+			if (!vis[0] && skill_cnt[0] < MAX_SKILL_CNT) {
+				vis[0] = 1, vis_cnt[0] = SPEEDFOOT, skill_cnt[0]++;
+				SKILL_INFORMATION();
+			}
+			break;
+		case DUN:
+			if (!vis[1] && skill_cnt[1] < MAX_SKILL_CNT) {
+				vis[1] = 1, vis_cnt[1] = DUNFOOT, skill_cnt[1]++;
+				SKILL_INFORMATION();
+			}
+			break;
 		case UP:
 			if (now_Dir != DOWN)
 				now_Dir = direction;
@@ -366,13 +502,14 @@ int MoveSnake(int level) {
 			break;
 		}
 	}
-	//判断是否死亡
-	if (!IsCorrect()) {
+	//判断是否超出边界
+	if (!IsBorder()) {
 		system("cls");
 		GotoXY(45, 16);
 		printf("最终得分：%d", snake.length - 3);
 		GotoXY(45, 18);
 		printf("你输了！");
+		score += snake.length - 3;//积分
 
 		/*看一下排行榜*/
 		GotoXY(45, 8);
@@ -404,15 +541,60 @@ int MoveSnake(int level) {
 		system("cls");
 		return 0;
 	}
+	//判断是否撞墙
+	int pos = IsBlock();
+	if (~pos) {
+		if (vis[1] == 1) {
+			PrintSingleBlock(pos);
+		}
+		else {
+			system("cls");
+			GotoXY(45, 16);
+			printf("最终得分：%d", snake.length - 3);
+			GotoXY(45, 18);
+			printf("你输了！");
+			score += snake.length - 3;//积分
+
+			/*看一下排行榜*/
+			GotoXY(45, 8);
+			printf("排行榜（只取前三名）");
+			int f = 0;
+			if (!hash[snake.length - 3]) {
+				cnt++;
+				hash[snake.length - 3] = 1;
+				if (cnt > 3)	cnt = 3;//只存三个
+				f = 1;
+			}
+			if (f) {
+				int i;
+				for (i = cnt - 1; i >= 0; i--) {
+					if (RankList[i] > snake.length - 3)	break;
+					RankList[i + 1] = RankList[i];
+				}
+				RankList[i + 1] = snake.length - 3;		//插入新的值，从大到小
+			}
+			int x = 45, y = 10;
+			for (int i = 0; i < cnt; i++) {
+				GotoXY(x, y);
+				printf("%d       %d", i + 1, RankList[i]);
+				y += 2;
+			}
+			GotoXY(45, 20);
+			printf("按任意键返回主菜单");
+			char c = _getch();
+			system("cls");
+			return 0;
+		}
+	}
 	//判断是否自撞
-	int pos = IsSelf();
-	if (pos != snake.length) {
+    pos = IsSelf();
+	if (pos != snake.length) {			//开了护盾就不会截取
 		for (int i = pos; i < snake.length; i++) {
 			GotoXY(snake.snakeNode[i].x, snake.snakeNode[i].y);
 			printf(" ");
 		}			//截断尾巴
 		snake.length = pos;
-		GotoXY(50, 5);
+		GotoXY(60, 5);
 		printf("当前得分：%d      ", snake.length - 3);	//要把前面的都删掉，不然一位数覆盖不了两位数，这里暂时用"    "
 	}
 	//判断是否胜利
@@ -421,6 +603,7 @@ int MoveSnake(int level) {
 		GotoXY(45, 14);
 		printf("你获胜了!!!");
 		GotoXY(45, 16);
+		score += snake.length - 3;
 		printf("按任意键继续");
 		char ch = _getch();
 		system("cls");
@@ -428,6 +611,7 @@ int MoveSnake(int level) {
 	}
 	//调整速度
 	SpeedControl(level);
+	if (vis[0] == 1) { Sleep(snake.speed / 2); return 1; }//加速技能
 	Sleep(snake.speed);
 	return 1;
 }
@@ -441,13 +625,16 @@ int IsSelf() {
 	return snake.length;
 }
 //死亡
-int IsCorrect() {
+int IsBorder() {
 	if (snake.snakeNode[0].x == 0 || snake.snakeNode[0].y == 0 || snake.snakeNode[0].x == MAP_WIDTH - 1 || snake.snakeNode[0].y == MAP_HEIGHT - 1)
 		return 0;
-	for (int i = 0; i < blockCount; i++) {
-		if (snake.snakeNode[0].x == block[i].x && snake.snakeNode[0].y == block[i].y)	return 0;
-	}
 	return 1;
+}
+int IsBlock() {
+	for (int i = 0; i < blockCount; i++) {
+		if ( snake.snakeNode[0].x == block[i].x && snake.snakeNode[0].y == block[i].y)	return i;
+	}
+	return -1;
 }
 
 void SpeedControl(int level)
